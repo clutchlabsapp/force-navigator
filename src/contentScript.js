@@ -1,7 +1,12 @@
 import { ui, forceNavigator, forceNavigatorSettings, _d } from "./shared"
 import { t } from "lisan"
 
-forceNavigator.pasteFromClipboard = (newtab)=>{
+forceNavigator.pasteFromClipboard = async ()=>{
+	try {
+		return (await navigator.clipboard.readText()).trim()
+	} catch(e) {
+		// Clipboard API blocked for this page; fall back to the legacy paste
+	}
 	let cb = document.createElement("textarea")
 	let body = document.getElementsByTagName('body')[0]
 	body.appendChild(cb)
@@ -23,10 +28,10 @@ forceNavigator.getIdFromUrl = ()=>{
 	}
 	return false
 }
-forceNavigator.launchMerger = (otherId, object)=>{
+forceNavigator.launchMerger = async (otherId, object)=>{
 	if(!otherId)
-		otherId = forceNavigator.pasteFromClipboard()
-	if(![15,18].includes(otherId.length)) {
+		otherId = await forceNavigator.pasteFromClipboard()
+	if(![15,18].includes(otherId?.length)) {
 		ui.clearOutput()
 		ui.addSearchResult("commands.errorAccountMerge")
 		return
@@ -77,14 +82,19 @@ forceNavigator.launchMergerAccounts = (otherId)=>forceNavigator.launchMerger(oth
 forceNavigator.launchMergerCases = (otherId)=>forceNavigator.launchMerger(otherId, "Case")
 forceNavigator.createTask = (subject)=>{
 	ui.showLoadingIndicator()
-	if(["",null,undefined].includes(subject) && !forceNavigator.userId) { console.error("Empty Task subject"); hideLoadingIndicator(); return }
+	if(["",null,undefined].includes(subject) && !forceNavigator.userId) { console.error("Empty Task subject"); ui.hideLoadingIndicator(); return }
 	chrome.runtime.sendMessage({
 			"action":'createTask', "apiUrl": forceNavigator.apiUrl,
 			"sessionId": forceNavigator.sessionId,
 			"domain": forceNavigator.serverInstance,
 			"subject": subject, "userId": forceNavigator.userId
 		}, response=>{
-			if(response.errors.length != 0) { console.error("Error creating task", response.errors); return }
+			if(!response?.id) {
+				console.error("Error creating task", response)
+				ui.hideLoadingIndicator()
+				ui.addError(Array.isArray(response) ? response : [{"message": response?.error ?? "Task not created"}])
+				return
+			}
 			ui.clearOutput()
 			forceNavigator.commands["commands.goToTask"] = {
 				"key": "commands.goToTask",

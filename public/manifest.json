@@ -38,9 +38,7 @@
 		],
 		"all_frames": true,
 		"js": [
-			"contentScript.js",
-			"shared.js",
-			"popup.js"
+			"contentScript.js"
 		],
 		"run_at": "document_end"
 	}],
@@ -69,6 +67,7 @@
 	"host_permissions": [
 		"https://*.force.com/*",
 		"https://*.salesforce.com/*",
+		"https://*.salesforce-setup.com/*",
 		"https://*.cloudforce.com/*"
 	]
 }

@@ -70,7 +70,7 @@ export const ui = {
 		document.getElementById("sfnavQuickSearch").value = e.target.firstChild.nodeValue
 		forceNavigator.listPosition = -1
 		ui.setVisibleSearch("hidden")
-		if(e.target.dataset.key & (!window.ctrlKey))
+		if(e.target.dataset.key && !window.ctrlKey)
 			forceNavigator.invokeCommand(e.target.dataset, window.ctrlKey,'click')
 		else
 			ui.hideSearchBox()
@@ -121,7 +121,7 @@ export const ui = {
 			ui.clearOutput()
 			chrome.runtime.sendMessage({"action": "getCommandsHistory",orgId:forceNavigator.organizationId},
 			response=>{
-				if(response.commandsHistory)
+				if(response?.commandsHistory)
 					for (let i = response.commandsHistory.length-1; i>=0; i--) {
 						const key = (response.commandsHistory[i])[0]
 						const url = (response.commandsHistory[i])[1]
@@ -538,6 +538,7 @@ console.log(cmdKey)
 				options,
 				response=>{
 					if(response && response.info) { console.info("info expanding: " + response.info); return }
+					if(response && response.error) { console.error("error expanding: " + response.error); return }
 					try {
 						if (response) {
 							Object.assign(forceNavigator.commands, response)
@@ -580,11 +581,13 @@ export const forceNavigatorSettings = {
 		forceNavigatorSettings.set("theme", newTheme)
 	},
 	"settingsOnly": ()=>JSON.parse(JSON.stringify(forceNavigatorSettings)),
-	"set": (key, value)=>{ let s={}; s[key]=value; chrome.storage.sync.set(s, response=>forceNavigator.refreshAndClear()) },
+	"set": (key, value)=>chrome.storage.sync.set({[key]: value}).then(()=>forceNavigator.refreshAndClear()),
 	"loadSettings": ()=>{
 		chrome.storage.sync.get(forceNavigatorSettings, settings=>{
 			for(const k in settings) { forceNavigatorSettings[k] = settings[k] }
 			forceNavigator.serverInstance = forceNavigator.getServerInstance(forceNavigatorSettings)
+			// Storage reads are async: rebuild the Setup commands now that Classic/Lightning mode is known
+			forceNavigator.resetCommands()
 			if(forceNavigatorSettings.theme)
 				document.getElementById('sfnavStyleBox').classList = [forceNavigatorSettings.theme]
 			if(forceNavigator.sessionId !== null) { return }
@@ -657,11 +660,6 @@ export const forceNavigator = {
 			forceNavigator.resetCommands()
 			ui.createBox()
 			ui.bindShortcuts()
-			if(forceNavigatorSettings.enhancedprofiles) {
-				delete forceNavigator.commands["setup.profiles"]
-			} else {
-				delete forceNavigator.commands["setup.enhancedProfiles"]
-			}
 		} catch(e) {
 			_d(e)
 		}
@@ -846,8 +844,8 @@ export const forceNavigator = {
 			else
 				return i
 		}, 0) > 1) {
-			const newLimit = parseInt(command.replace(/\D+/,''))
-			if(newLimit != NaN && newLimit <= MAX_SEARCH_RESULTS) {
+			const newLimit = parseInt(command.key.replace(/\D+/,''))
+			if(!isNaN(newLimit) && newLimit > 0 && newLimit <= forceNavigatorSettings.MAX_SEARCH_RESULTS) {
 				forceNavigatorSettings.searchLimit = newLimit
 				forceNavigatorSettings.set("searchLimit", forceNavigatorSettings.searchLimit)
 					.then(result=>ui.addSearchResult("notification.searchSettingsUpdated"))
@@ -891,6 +889,11 @@ export const forceNavigator = {
 				"label": [t("prefix.setup"), t(c)].join(" > ")
 			}
 		})
+		if(forceNavigatorSettings.enhancedprofiles) {
+			delete forceNavigator.commands["setup.profiles"]
+		} else {
+			delete forceNavigator.commands["setup.enhancedProfiles"]
+		}
 	},
 	"searchTerms": (terms)=>{
 		// TODO doesn't work from a searched page in Lightning, SF just won't reparse the update URL because reasons, looks like they hijack the navigate event
@@ -941,13 +944,14 @@ export const forceNavigator = {
 		if(Object.keys(data).length > 0)
 			request.body = JSON.stringify(data)
 		return fetch(getUrl, request).then(response => {
-			forceNavigator.apiUrl = response.url.match(/:\/\/(.*)salesforce.com/)[1] + "salesforce.com"
+			const apiHost = response.url.match(/:\/\/([^/]*salesforce\.com)/)
+			if(apiHost) forceNavigator.apiUrl = apiHost[1]
 			switch(type) {
 				case "json": return response.clone().json()
 				case "document": return response.clone().text()
 			}
 		}).then(data => {
-			if(typeof data == "string")
+			if(typeof data == "string" && typeof DOMParser != "undefined")
 				return (new DOMParser()).parseFromString(data, "text/html")
 			else
 				return data
@@ -978,15 +982,19 @@ export const forceNavigator = {
 				"serverUrl" : forceNavigator.serverUrl,
 				"action": "getMetadata"
 			}
-		chrome.runtime.sendMessage(options, response=>Object.assign(forceNavigator.commands, response))
-		chrome.runtime.sendMessage(Object.assign(options, {"action": "getSobjectNameFields"}), response=>{
-				Object.assign(forceNavigator.labelToNameFieldMapping, response.labelToNameFieldMapping)
-				Object.assign(forceNavigator.labelToSobjectApiNameMapping, response.labelToSobjectApiNameMapping)
-				//console.log("after getSobjectNameFields, loaded forceNavigator.labelToNameFieldMapping=",Object.keys(forceNavigator.labelToNameFieldMapping).length)
+		const addCommands = (response)=>{
+			if(!response || response.error) { if(response?.error) console.error(response.error); return }
+			Object.assign(forceNavigator.commands, response)
+		}
+		chrome.runtime.sendMessage(options, addCommands)
+		chrome.runtime.sendMessage({...options, "action": "getSobjectNameFields"}, response=>{
+			if(!response || response.error) { if(response?.error) console.error(response.error); return }
+			Object.assign(forceNavigator.labelToNameFieldMapping, response.labelToNameFieldMapping)
+			Object.assign(forceNavigator.labelToSobjectApiNameMapping, response.labelToSobjectApiNameMapping)
 		})
-		chrome.runtime.sendMessage(Object.assign(options, {"action": "getActiveFlows"}), response=>Object.assign(forceNavigator.commands, response))
+		chrome.runtime.sendMessage({...options, "action": "getActiveFlows"}, addCommands)
 		forceNavigator.otherExtensions.filter(e=>{ return e.platform == (!!window.chrome ? "chrome-extension" : "moz-extension") }).forEach(e=>chrome.runtime.sendMessage(
-			Object.assign(options, { "action": "getOtherExtensionCommands", "otherExtension": e }), r=>{ return Object.assign(forceNavigator.commands, r) })
+			{...options, "action": "getOtherExtensionCommands", "otherExtension": e }, addCommands)
 		)
 		ui.hideLoadingIndicator()
 	},
@@ -1010,8 +1018,9 @@ export const forceNavigator = {
 				domain: forceNavigator.serverInstance,
 				searchValue: searchValue, userId: forceNavigator.userId
 			}, success=>{
-				let numberOfUserRecords = success.records.length
 				ui.hideLoadingIndicator()
+				if(!success?.records) { ui.addError([{"message": success?.error ?? "User search failed"}]); return }
+				let numberOfUserRecords = success.records.length
 				if(numberOfUserRecords < 1) { ui.addError([{"message":"No user for your search exists."}]) }
 				else if(numberOfUserRecords > 1) { forceNavigator.loginAsShowOptions(success.records) }
 				else {
