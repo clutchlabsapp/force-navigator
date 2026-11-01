@@ -1165,7 +1165,7 @@ export const forceNavigator = {
 		},
 		"setup.fiscalYear": {
 			"lightning": "/lightning/setup/ForecastFiscalYear/home",
-			"classic": "/ui/setup/Setup?setupid=CompanyProfile"
+			"classic": "/setup/org/orgfydetail.jsp?setupid=ForecastFiscalYear"
 		},
 		"setup.businessHours": {
 			"lightning": "/lightning/setup/BusinessHours/home",
@@ -1833,19 +1833,19 @@ export const forceNavigator = {
 		},
 		"setup.emailInternationalization": {
 			"lightning": "/lightning/setup/InternationalEmailAddresses/home",
-			"classic": "/lightning/setup/InternationalEmailAddresses/home"
+			"classic": "/email-admin/editEmailAddrIntl.apexp?setupid=InternationalEmailAddresses"
 		},
 		"setup.emailAttachments": {
 			"lightning": "/lightning/setup/EmailAttachmentSettings/home",
-			"classic": "/lightning/setup/EmailAttachmentSettings/home"
+			"classic": "/email-admin/editEmailAttachmentSettings.apexp?setupid=EmailAttachmentSettings"
 		},
 		"setup.emailDisclaimers": {
 			"lightning": "/lightning/setup/EmailDisclaimers/home",
-			"classic": "/lightning/setup/EmailDisclaimers/home"
+			"classic": "/0GC?setupid=EmailDisclaimers"
 		},
 		"setup.emailGMail": {
 			"lightning": "/lightning/setup/LightningForGmailAndSyncSettings/home",
-			"classic": "/lightning/setup/LightningForGmailAndSyncSettings/home"
+			"classic": "/ui/setup/lfx2x/LightningForGmailAndSyncSettingsPage?setupid=LightningForGmailAndSyncSettingsLeaf"
 		},
 		"setup.emailClassicTemplates": {
 			"lightning": "/lightning/setup/CommunicationTemplatesEmail/home",
@@ -1861,15 +1861,15 @@ export const forceNavigator = {
 		},
 		"setup.emailOutlookSync": {
 			"lightning": "/lightning/setup/LightningForOutlookAndSyncSettings/home",
-			"classic": "/lightning/setup/LightningForOutlookAndSyncSettings/home"
+			"classic": "/ui/setup/lfx2x/LightningForOutlookAndSyncSettingsPage?setupid=LightningForOutlookAndSyncSettingsLeaf"
 		},
 		"setup.emailExternalService": {
 			"lightning": "/lightning/setup/EmailTransportServiceSetupPage/home",
-			"classic": "/lightning/setup/EmailTransportServiceSetupPage/home"
+			"classic": "/ui/setup/email/EmailTransportServiceSetupPage?setupid=EmailTransportService"
 		},
 		"setup.emailTestDeliverability": {
 			"lightning": "/lightning/setup/TestEmailDeliverability/home",
-			"classic": "/email-admin/testDeliverability.apexp?setupid=TestEmailDeliverability"
+			"classic": "/email-admin/testEmailDeliverability.apexp?setupid=TestEmailDeliverability"
 		},
 		"setup.territoryModels": {
 			"lightning":"/lightning/setup/Territory2Models/home",
@@ -1897,7 +1897,7 @@ export const forceNavigator = {
 		},
 		"setup.cors": {
 			"lightning": "/lightning/setup/CorsWhitelistEntries/home",
-			"classic": "/lightning/setup/CorsWhitelistEntries/home"
+			"classic": "/074?setupid=CorsWhitelistEntries"
 		},
 		"setup.storageUsage": {
 			"lightning": "/lightning/setup/CompanyResourceDisk/home",
@@ -1905,7 +1905,7 @@ export const forceNavigator = {
 		},
 		"setup.scratchOrgs": {
 			"lightning": "/lightning/setup/ShapeGrantAccess/home",
-			"classic": "/lightning/setup/ShapeGrantAccess/home"
+			"classic": "/ui/setup/sfdx/ScratchOrgSetupPage?setupid=ShapeGrantAccess"
 		},
 		"setup.userAccessPolicies": {
 			"lightning": "/lightning/setup/UserAccessPolicies/home",
@@ -1929,7 +1929,7 @@ export const forceNavigator = {
 		},
 		"setup.userManagementSettings": {
 			"lightning": "/lightning/setup/UserManagementSettings/home",
-			"classic": "/lightning/setup/UserManagementSettings/home"
+			"classic": "/_ui/perms/ui/setup/UserManagementSettingsPage?setupid=UserManagementSettings"
 		},
 	}
 }
