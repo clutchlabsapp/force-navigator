@@ -29,7 +29,21 @@ const apiHeaders = (sessionId, contentType = false)=>Object.assign(
 	{"Authorization": "Bearer " + sessionId, "Accept": "application/json"},
 	contentType ? {"Content-Type": "application/json"} : {}
 )
-const apiBase = (request)=>"https://" + request.apiUrl + "/services/data/" + forceNavigator.apiVersion
+// Use the newest API version the org offers (cached per host); fall back to the built-in default
+const getLatestApiVersion = async (host, sessionId)=>{
+	const key = "apiVersion." + host
+	let version = await cache.get(key)
+	if(version) return version
+	try {
+		const versions = await forceNavigator.getHTTP("https://" + host + "/services/data/", "json", apiHeaders(sessionId))
+		if(Array.isArray(versions) && versions.length)
+			version = "v" + versions.map(v=>v.version).sort((a,b)=>parseFloat(a) - parseFloat(b)).pop()
+	} catch(e) { _d([e]) }
+	version = version || forceNavigator.apiVersion
+	await cache.set(key, version)
+	return version
+}
+const apiBase = async (request)=>"https://" + request.apiUrl + "/services/data/" + await getLatestApiVersion(request.apiUrl, request.sessionId)
 const sendError = (sendResponse, e)=>{
 	_d([e])
 	sendResponse({"error": e?.message ?? String(e)})
@@ -107,14 +121,15 @@ const getApiSessionId = (request, sender, sendResponse)=>{
 	const apiHost = request.serverUrl?.replace('lightning.force.com','my.salesforce.com')
 	const cookieQuery = {url: apiHost, name: "sid"}
 	if(sender.tab?.cookieStoreId) cookieQuery.storeId = sender.tab.cookieStoreId // Firefox containers
-	chrome.cookies.get(cookieQuery, c=>{
+	chrome.cookies.get(cookieQuery, async c=>{
 		if(!c) {
 			sendResponse({error: "No session data found for " + request.serverUrl})
 			return
 		}
 		const sid = c.value
 		const orgId = sid.match(/([\w\d]+)/)[1]
-		forceNavigator.getHTTP("https://" + c.domain + "/services/data/" + forceNavigator.apiVersion, "json", apiHeaders(sid))
+		const apiVersion = await getLatestApiVersion(c.domain, sid)
+		forceNavigator.getHTTP("https://" + c.domain + "/services/data/" + apiVersion, "json", apiHeaders(sid))
 		.then(response=>{
 			if(response?.identity)
 				sendResponse({sessionId: sid, userId: response.identity.match(/005.*/)[0], orgId: orgId, apiUrl: c.domain})
@@ -128,7 +143,7 @@ const getMetadata = async (request, sendResponse)=>{
 	const key = metaDataKey(request.sessionHash)
 	let commands = request.force ? null : await cache.get(key)
 	if(!commands) {
-		const response = await forceNavigator.getHTTP(apiBase(request) + "/sobjects/", "json", apiHeaders(request.sessionId))
+		const response = await forceNavigator.getHTTP(await apiBase(request) + "/sobjects/", "json", apiHeaders(request.sessionId))
 		commands = parseMetadata(response, request.serverUrl)
 		await cache.set(key, commands)
 	}
@@ -136,7 +151,7 @@ const getMetadata = async (request, sendResponse)=>{
 }
 
 const getActiveFlows = async (request, sendResponse)=>{
-	const response = await forceNavigator.getHTTP(apiBase(request) + "/query/?q=select+ActiveVersionId,Label+from+FlowDefinitionView+where+IsActive=true", "json", apiHeaders(request.sessionId))
+	const response = await forceNavigator.getHTTP(await apiBase(request) + "/query/?q=select+ActiveVersionId,Label+from+FlowDefinitionView+where+IsActive=true", "json", apiHeaders(request.sessionId))
 	const targetUrl = request.domain + "/builder_platform_interaction/flowBuilder.app?flowId="
 	let flowCommands = {}
 	response.records?.forEach(f=>{
@@ -156,7 +171,7 @@ Map each object label to its API name and its "name" field, used by "? <object> 
 */
 const getSobjectNameFields = async (request, sendResponse)=>{
 	const q = encodeURI("select QualifiedApiName, EntityDefinition.QualifiedApiName,EntityDefinition.MasterLabel from FieldDefinition where (EntityDefinition.QualifiedApiName like '%') and IsNameField = true")
-	const response = await forceNavigator.getHTTP(apiBase(request) + "/query/?q=" + q, "json", apiHeaders(request.sessionId))
+	const response = await forceNavigator.getHTTP(await apiBase(request) + "/query/?q=" + q, "json", apiHeaders(request.sessionId))
 	let labelToSobjectApiNameMapping = {}
 	let labelToNameFieldMapping = {}
 	response.records?.forEach(f=>{
@@ -175,7 +190,7 @@ const getSobjectNameFields = async (request, sendResponse)=>{
 
 // Load an object's compact layout; its fields are shown in "?" search results
 const loadCompactLayoutForSobject = async (request, sendResponse)=>{
-	const response = await forceNavigator.getHTTP(apiBase(request) + "/compactLayouts?q=" + encodeURI(request.sobject), "json", apiHeaders(request.sessionId))
+	const response = await forceNavigator.getHTTP(await apiBase(request) + "/compactLayouts?q=" + encodeURI(request.sobject), "json", apiHeaders(request.sessionId))
 	if(response?.error || Array.isArray(response)) { sendResponse({"error": JSON.stringify(response)}); return }
 	let mainFields = []
 	Object.values(response).forEach(layout=>layout.fieldItems?.forEach(f=>{
@@ -206,7 +221,7 @@ const doSearch = async (request, sendResponse)=>{
 	const layoutFields = compactLayoutFieldsForSobject[objectApiName.toLowerCase()] ?? compactLayoutFieldsForSobject[lc_searchSobject]
 	const fieldsToReturn = `(Id,${layoutFields || nameField})`
 	const sosl = `FIND {${searchText}} IN NAME FIELDS RETURNING ${objectApiName} ${fieldsToReturn} LIMIT 7`
-	const response = await forceNavigator.getHTTP(apiBase(request) + "/search/?q=" + encodeURIComponent(sosl), "json", apiHeaders(request.sessionId))
+	const response = await forceNavigator.getHTTP(await apiBase(request) + "/search/?q=" + encodeURIComponent(sosl), "json", apiHeaders(request.sessionId))
 	if(!response?.searchRecords) { sendResponse({"error": JSON.stringify(response)}); return }
 	sendResponse({
 		"searchRecords": response.searchRecords,
@@ -228,7 +243,7 @@ const getMoreData = async (request, sendResponse)=>{
 		sendResponse({"info": "can't expand " + infoToGet})
 		return
 	}
-	const url = apiBase(request) + sfObjectsGetData[infoToGet].getDataRequest(sourceCommand.apiname)
+	const url = await apiBase(request) + sfObjectsGetData[infoToGet].getDataRequest(sourceCommand.apiname)
 	const response = await forceNavigator.getHTTP(url, "json", apiHeaders(request.sessionId))
 	if(response?.error || Array.isArray(response)) { sendResponse({"error": JSON.stringify(response)}); return }
 	const objCommands = sfObjectsGetData[infoToGet].processResponse(sourceCommand.apiname, sourceCommand.label, response)
@@ -239,14 +254,14 @@ const getMoreData = async (request, sendResponse)=>{
 }
 
 const createTask = async (request, sendResponse)=>{
-	const response = await forceNavigator.getHTTP(apiBase(request) + "/sobjects/Task", "json",
+	const response = await forceNavigator.getHTTP(await apiBase(request) + "/sobjects/Task", "json",
 		apiHeaders(request.sessionId, true), {"Subject": request.subject, "OwnerId": request.userId}, "POST")
 	sendResponse(response)
 }
 
 const searchLogins = async (request, sendResponse)=>{
 	const term = encodeURIComponent(request.searchValue.trim().replace(/'/g, "\\'"))
-	const response = await forceNavigator.getHTTP(apiBase(request) + "/query/?q=SELECT+Id,+Name,+Username+FROM+User+WHERE+Name+LIKE+'%25" + term + "%25'+OR+Username+LIKE+'%25" + term + "%25'", "json", apiHeaders(request.sessionId, true))
+	const response = await forceNavigator.getHTTP(await apiBase(request) + "/query/?q=SELECT+Id,+Name,+Username+FROM+User+WHERE+Name+LIKE+'%25" + term + "%25'+OR+Username+LIKE+'%25" + term + "%25'", "json", apiHeaders(request.sessionId, true))
 	sendResponse(response)
 }
 

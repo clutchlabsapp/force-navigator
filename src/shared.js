@@ -616,7 +616,7 @@ export const forceNavigator = {
 	"serverInstance": null,
 	"serverUrl": null,
 	"apiUrl": null,
-	"apiVersion": "v56.0",
+	"apiVersion": "v68.0", // fallback; the service worker uses the newest version the org offers
 	"loaded": false,
 	"listPosition": -1,
 	"ctrlKey": false,
@@ -1006,8 +1006,7 @@ export const forceNavigator = {
 				serverInstance: forceNavigator.serverInstance,
 				lightningMode: forceNavigatorSettings.lightningMode
 			})
-		},
-		response=>{}),
+		}),
 	"loginAs": (cmd, newTab)=>{
 		let searchValue = ui.searchBox.querySelector('input').value.toLowerCase().replace(t("prefix.loginAs").toLowerCase(), "")
 		if(![null,undefined,""].includes(searchValue) && searchValue.length > 1) {
