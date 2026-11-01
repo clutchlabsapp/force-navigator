@@ -52,7 +52,6 @@ module.exports = {
 		"objects.relatedLookupFilters": "Related Lookup Filters",
 		"objects.searchLayouts": "Search Layouts",
 		"objects.triggers": "Triggers",
-		"objects.lightningPages": "Lightning Record Pages",
 		"objects.validationRules": "Validation Rules",
 		"objects.details": "Details",
 		"setup.enhancedProfiles": "Enhanced Profiles",
@@ -263,6 +262,11 @@ module.exports = {
 		"setup.cors" : "Cross-Origin Resource Sharing (CORS)",
 		"setup.storageUsage" : "Storage Usage",
 		"setup.scratchOrgs" : "Scratch Orgs",
-		"setup.userManagementSettings" : "User Management Settings"
+		"setup.userManagementSettings" : "User Management Settings",
+		"setup.userAccessPolicies" : "User Access Policies",
+		"setup.agents" : "Agentforce Agents",
+		"setup.promptBuilder" : "Prompt Builder",
+		"setup.einsteinSetup" : "Einstein Setup",
+		"setup.flowTriggerExplorer" : "Flow Trigger Explorer"
 	},
 }
