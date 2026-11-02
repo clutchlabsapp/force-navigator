@@ -833,7 +833,7 @@ export const forceNavigator = {
 				break
 			case "commands.createTask":
 				forceNavigator.createTask(ui.quickSearch.value.substring(1).trim())
-				break
+				return true
 			case "commands.search":
 				targetUrl = forceNavigator.searchTerms(ui.quickSearch.value.substring(1).trim())
 				break
@@ -913,23 +913,29 @@ export const forceNavigator = {
 		}))
 		return searchUrl
 	},
-	"getServerInstance": (settings = {})=>{
-		let serverUrl
-		let url = location.origin + ""
-		if(settings.lightningMode) {// if(url.indexOf("lightning.force") != -1)
-			serverUrl = url.replace('lightning.force.com','').replace('my.salesforce.com','') + "lightning.force.com"
-		} else {
-			if(url.includes("salesforce"))
-				serverUrl = url.substring(0, url.indexOf("salesforce")) + "salesforce.com"
-			else if(url.includes("cloudforce"))
-				serverUrl = url.substring(0, url.indexOf("cloudforce")) + "cloudforce.com"
-			else if(url.includes("visual.force")) {
-				let urlParseArray = url.split(".")
-				serverUrl = urlParseArray[1] + '.salesforce.com'
-			} else {
-				serverUrl = url.replace('lightning.force.com','') + "my.salesforce.com"
-			}
+	// Work out the org's API (My Domain) and Lightning hosts from any Salesforce page host:
+	// enhanced domains incl. sandbox/develop/scratch, the Setup domain, Visualforce, files, and legacy instances
+	"parseOrgHosts": (hostname)=>{
+		const enhanced = hostname.match(/^(.+?)\.(my\.salesforce-setup\.com|my\.salesforce\.com|lightning\.force\.com|file\.force\.com|vf\.force\.com)$/)
+		if(enhanced) {
+			let [first, ...rest] = enhanced[1].split(".")
+			if(enhanced[2] == "vf.force.com")
+				first = first.replace(/--[^-]+$/, "") // drop the namespace: mydomain--c, mydomain--sbx--c
+			const prefix = [first, ...rest].join(".")
+			return { "api": prefix + ".my.salesforce.com", "lightning": prefix + ".lightning.force.com" }
 		}
+		// legacy Visualforce: c.na1.visual.force.com or mydomain--c.na1.visual.force.com
+		const legacyVf = hostname.match(/^([^.]+)\.([^.]+)\.visual\.force\.com$/)
+		if(legacyVf) {
+			const api = legacyVf[1].includes("--") ? legacyVf[1].split("--")[0] + ".my.salesforce.com" : legacyVf[2] + ".salesforce.com"
+			return { "api": api, "lightning": api.replace(/\.my\.salesforce\.com$/, ".lightning.force.com") }
+		}
+		// legacy instances (na1.salesforce.com) and cloudforce.com have no separate Lightning host
+		return { "api": hostname, "lightning": hostname }
+	},
+	"getServerInstance": (settings = {})=>{
+		const hosts = forceNavigator.parseOrgHosts(location.hostname)
+		const serverUrl = "https://" + (settings.lightningMode ? hosts.lightning : hosts.api)
 		forceNavigator.serverUrl = serverUrl
 		return serverUrl
 	},
@@ -1062,6 +1068,9 @@ export const forceNavigator = {
 		"objects.relatedLookupFilters": "/RelatedLookupFilters/view",
 		"objects.searchLayouts": "/MySearchLayouts/view",
 		"objects.triggers": "/ApexTriggers/view",
+		"objects.flowTriggers": "/FlowTriggers/view",
+		"objects.scopingRules": "/ScopingRules/view",
+		"objects.objectAccess": "/ObjectAccess/view",
 		"objects.validationRules": "/ValidationRules/view"
 	},
 	"standardObjects": [
@@ -1121,7 +1130,7 @@ export const forceNavigator = {
 			"classic": "/p/setup/custent/CustomObjectsPage?setupid=CustomObjects&retURL=%2Fui%2Fsetup%2FSetup%3Fsetupid%3DDevTools"
 		},
 		"setup.profiles": {
-			"lightning": "/lightning/setup/Profiles/home",
+			"lightning": "/lightning/setup/EnhancedProfiles/home",
 			"classic": "/00e?setupid=EnhancedProfiles&retURL=%2Fui%2Fsetup%2FSetup%3Fsetupid%3DUsers"
 		},
 		"setup.searchLayouts": {
@@ -1636,7 +1645,7 @@ export const forceNavigator = {
 			"classic": "/_ui/platform/ui/schema/wizard/picklist/PicklistsPage?setupid=Picklists&retURL=%2Fui%2Fsetup%2FSetup%3Fsetupid%3DDevTools"
 		},
 		"setup.reportTypes": {
-			"lightning": "/lightning/setup/CustomReportTypes/home",
+			"lightning": "/lightning/setup/CustomReportTypeLightning/home",
 			"classic": "/070?retURL=%2Fui%2Fsetup%2FSetup%3Fsetupid%3DDevTools&setupid=CustomReportTypes"
 		},
 		"setup.tabs": {
@@ -1915,10 +1924,6 @@ export const forceNavigator = {
 			"lightning": "/lightning/setup/ShapeGrantAccess/home",
 			"classic": "/ui/setup/sfdx/ScratchOrgSetupPage?setupid=ShapeGrantAccess"
 		},
-		"setup.userAccessPolicies": {
-			"lightning": "/lightning/setup/UserAccessPolicies/home",
-			"classic": "/lightning/setup/UserAccessPolicies/home"
-		},
 		"setup.agents": {
 			"lightning": "/lightning/setup/EinsteinCopilot/home",
 			"classic": "/lightning/setup/EinsteinCopilot/home"
@@ -1926,6 +1931,10 @@ export const forceNavigator = {
 		"setup.promptBuilder": {
 			"lightning": "/lightning/setup/EinsteinPromptStudio/home",
 			"classic": "/lightning/setup/EinsteinPromptStudio/home"
+		},
+		"setup.dataCloudSetup": {
+			"lightning": "/lightning/setup/CDPSetupHome/home",
+			"classic": "/lightning/setup/CDPSetupHome/home"
 		},
 		"setup.einsteinSetup": {
 			"lightning": "/lightning/setup/EinsteinGPTSetup/home",

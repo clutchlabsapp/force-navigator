@@ -52,6 +52,9 @@ module.exports = {
 		"objects.relatedLookupFilters": "Related Lookup Filters",
 		"objects.searchLayouts": "Search Layouts",
 		"objects.triggers": "Triggers",
+		"objects.flowTriggers": "Flow Triggers",
+		"objects.scopingRules": "Scoping Rules",
+		"objects.objectAccess": "Object Access",
 		"objects.validationRules": "Validation Rules",
 		"objects.details": "Details",
 		"setup.enhancedProfiles": "Enhanced Profiles",
@@ -263,10 +266,10 @@ module.exports = {
 		"setup.storageUsage" : "Storage Usage",
 		"setup.scratchOrgs" : "Scratch Orgs",
 		"setup.userManagementSettings" : "User Management Settings",
-		"setup.userAccessPolicies" : "User Access Policies",
 		"setup.agents" : "Agentforce Agents",
 		"setup.promptBuilder" : "Prompt Builder",
 		"setup.einsteinSetup" : "Einstein Setup",
+		"setup.dataCloudSetup" : "Data Cloud Setup",
 		"setup.flowTriggerExplorer" : "Flow Trigger Explorer"
 	},
 }
